@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proto to X Converter (By Cursor)</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <style>
+        .split-panel {
+            display: flex;
+            height: calc(100vh - 4rem);
+        }
+        .panel {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+        .left-panel {
+            background-color: #f3f4f6;
+        }
+        .right-panel {
+            background-color: #ffffff;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .editor {
+            font-family: monospace;
+            min-height: 300px;
+            resize: vertical;
+        }
+        .copy-button {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            background-color: #4f46e5;
+            color: white;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .copy-button:hover {
+            background-color: #4338ca;
+        }
+        .code-container {
+            position: relative;
+        }
+        .version-info {
+            font-size: 0.875rem;
+            color: #6b7280;
+            margin-top: 0.5rem;
+        }
+        .command-display {
+            background-color: #1e1e1e;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            color: #d4d4d4;
+            border: 1px solid #333;
+        }
+        .command-display pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .command-display code {
+            color: #569cd6;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <header class="bg-white shadow">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+            <h1 class="text-2xl font-bold text-gray-900">Proto to X Converter</h1>
+            <div class="version-info">
+                <div class="mb-2">
+                    <span class="font-semibold">Python Versions:</span>
+                    <span>grpcio-tools: {{ versions.python.get('grpcio-tools', 'N/A') }}</span> |
+                    <span>grpcio: {{ versions.python.get('grpcio', 'N/A') }}</span> |
+                    <span>protobuf: {{ versions.python.get('protobuf', 'N/A') }}</span>
+                </div>
+                <div>
+                    <span class="font-semibold">Protoc Version:</span>
+                    <span>{{ versions.protoc.get('version', 'N/A') }}</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="split-panel">
+        <div class="panel left-panel">
+            <div class="max-w-7xl mx-auto">
+                <div class="bg-white shadow rounded-lg p-6">
+                    <form id="uploadForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Enter Proto File Content</label>
+                            <textarea id="protoContent" class="editor w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter your proto file content here...">syntax = "proto2";
+
+message AirQualityReading {
+    optional int32 temp = 1;
+    optional int64 humidity = 2;
+    optional int64 timestamp = 3;
+}
+
+message AirQuality {
+    optional string device_name = 1;
+    repeated AirQualityReading readings = 2;
+    repeated string tags = 3; // tags like "indoor", "kitchen", etc.
+}</textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Select Target Language</label>
+                            <select id="targetLanguage" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="python">Python</option>
+                                <option value="go">Go</option>
+                                <option value="rust">Rust</option>
+                            </select>
+                        </div>
+                        <div id="goPackageContainer" class="hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Go Package Path</label>
+                            <input type="text" id="goPackagePath" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="github.com/yourusername/yourpackage">
+                        </div>
+                        <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            <span class="button-text">Convert</span>
+                            <svg class="animate-spin -ml-1 mr-3 pl-2 h-5 w-5 text-white hidden" id="loading-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel right-panel">
+            <div class="max-w-7xl mx-auto">
+                <div class="bg-white shadow rounded-lg p-6">
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Generated Code</h2>
+                    <div class="command-display">
+                        <pre><code id="command-display">Command will appear here...</code></pre>
+                    </div>
+                    <div class="code-container">
+                        <button id="copyButton" class="copy-button hidden">Copy</button>
+                        <div id="output" class="bg-gray-100 p-4 rounded-md">
+                            <pre id="generatedCode" class="language-python"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-protobuf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-go.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-rust.min.js"></script>
+    <script>
+        // Initialize syntax highlighting for the proto editor
+        const protoEditor = document.getElementById('protoContent');
+        protoEditor.addEventListener('input', function() {
+            const highlighted = Prism.highlight(this.value, Prism.languages.protobuf, 'protobuf');
+            this.innerHTML = highlighted;
+        });
+
+        // Show/hide Go package path input based on language selection
+        document.getElementById('targetLanguage').addEventListener('change', function() {
+            const goPackageContainer = document.getElementById('goPackageContainer');
+            goPackageContainer.classList.toggle('hidden', this.value !== 'go');
+        });
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            const protoContent = document.getElementById('protoContent').value;
+            const targetLanguage = document.getElementById('targetLanguage').value;
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            const buttonText = submitButton.querySelector('.button-text');
+            const loadingSpinner = document.getElementById('loading-spinner');
+
+            // Disable button and show loading spinner
+            submitButton.disabled = true;
+            buttonText.textContent = 'Converting...';
+            loadingSpinner.classList.remove('hidden');
+
+            if (protoContent.trim() !== '') {
+                const blob = new Blob([protoContent], { type: 'text/plain' });
+                formData.append('file', blob, 'input.proto');
+                formData.append('language', targetLanguage);
+                
+                if (targetLanguage === 'go') {
+                    const goPackagePath = document.getElementById('goPackagePath').value;
+                    if (!goPackagePath) {
+                        alert('Please enter a Go package path');
+                        // Reset button state
+                        submitButton.disabled = false;
+                        buttonText.textContent = 'Convert';
+                        loadingSpinner.classList.add('hidden');
+                        return;
+                    }
+                    formData.append('go_package', goPackagePath);
+                }
+            } else {
+                alert('Please enter proto content');
+                // Reset button state
+                submitButton.disabled = false;
+                buttonText.textContent = 'Convert';
+                loadingSpinner.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch('/upload/', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const generatedCode = document.getElementById('generatedCode');
+                    generatedCode.textContent = data.generated_code;
+                    // Set the appropriate language class for syntax highlighting
+                    generatedCode.className = `language-${targetLanguage}`;
+                    Prism.highlightElement(generatedCode);
+                    document.getElementById('copyButton').classList.remove('hidden');
+                    
+                    // Update command display
+                    document.getElementById('command-display').textContent = data.command;
+                    
+                    // Update version info in header
+                    const versionInfo = document.querySelector('.version-info');
+                    versionInfo.innerHTML = `
+                        <div class="mb-2">
+                            <span class="font-semibold">Python Versions:</span>
+                            <span>grpcio-tools: ${data.versions.python['grpcio-tools']}</span> |
+                            <span>grpcio: ${data.versions.python['grpcio']}</span> |
+                            <span>protobuf: ${data.versions.python['protobuf']}</span>
+                        </div>
+                        <div>
+                            <span class="font-semibold">Protoc Version:</span>
+                            <span>${data.versions.protoc['version']}</span>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('generatedCode').textContent = `Error: ${data.message}`;
+                    document.getElementById('copyButton').classList.add('hidden');
+                    document.getElementById('command-display').textContent = 'Error occurred during conversion';
+                }
+            } catch (error) {
+                document.getElementById('generatedCode').textContent = `Error: ${error.message}`;
+                document.getElementById('copyButton').classList.add('hidden');
+                document.getElementById('command-display').textContent = 'Error occurred during conversion';
+            } finally {
+                // Reset button state
+                submitButton.disabled = false;
+                buttonText.textContent = 'Convert';
+                loadingSpinner.classList.add('hidden');
+            }
+        });
+
+        // Copy button functionality
+        document.getElementById('copyButton').addEventListener('click', () => {
+            const code = document.getElementById('generatedCode').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const button = document.getElementById('copyButton');
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            });
+        });
+    </script>
+</body>
+</html> 
